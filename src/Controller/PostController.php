@@ -7,10 +7,12 @@ use App\Entity\User;
 use App\Form\PostType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\String\Slugger\SluggerInterface;
 
 final class PostController extends AbstractController
 {
@@ -23,17 +25,42 @@ final class PostController extends AbstractController
 
 
     #[Route('/', name: 'app_post')]
-    public function index(Request $request): Response
+    public function index(Request $request, SluggerInterface $slugger): Response
     {
         $post = new Post();
+
+        $posts = $this->em->getRepository(Post::class)->findAllPosts();
 
         $form = $this->createForm(PostType::class, $post);
 
         $form->handleRequest($request);
 
         if ( $form->isSubmitted() && $form->isValid() ) {
+            $file = $form->get('file')->getData();
+            $url = str_replace(' ', '-', $form->get('title')->getData());
+
+            if ($file) {
+                $originalFilename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+                $safeFilename = $slugger->slug($originalFilename);
+                $newFilename = $safeFilename.'-'.uniqid().'.'.$file->guessExtension();
+
+                try {
+                    $file->move(
+                        $this->getParameter('files_directory'),
+                        $newFilename
+                    );
+                } catch (FileException $e) {
+                    throw new \Exception('Error al subir el archivo');
+                }
+
+                $post->setFile($newFilename);
+            }
+
+            $post->setUrl($url);
+
             $user = $this->em->getRepository(User::class)->find(1);
             $post->setUser($user);
+
             $this->em->persist($post);
             $this->em->flush();
             return $this->redirectToRoute('app_post');
@@ -41,6 +68,7 @@ final class PostController extends AbstractController
 
         return $this->render('post/index.html.twig', [
             'form' => $form->createView(),
+            'posts' => $posts,
         ]);
     }
 

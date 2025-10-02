@@ -8,9 +8,11 @@ use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\DateTimeType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\SubmitType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\Image;
 
 class PostType extends AbstractType
 {
@@ -22,16 +24,21 @@ class PostType extends AbstractType
                 'choices' => Post::TYPES
             ])
             ->add('description')
-            ->add('file')
-            ->add('creation_date', DateTimeType::class, [
-                'time_label' => 'Starts On',
-            ])
-            ->add('url')
+            ->add('file', FileType::class, [
+                'label' => 'Imagen del Post',
+                'required' => false,
+                'constraints' => [
+                    new Image([
+                        'maxSize' => '2M',
+                        'mimeTypesMessage' => 'Solo se permiten imágenes válidas (JPEG, PNG, GIF)',
+                        'minWidth' => 300,
+                        'minHeight' => 300,
+                        'maxWidth' => 2000,
+                        'maxHeight' => 2000,
+                    ])
+                ]
+            ]) 
             ->add('submit', SubmitType::class)
-            /* ->add('user', EntityType::class, [
-                'class' => User::class,
-                'choice_label' => 'id',
-            ]) */
         ;
     }
 
